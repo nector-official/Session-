@@ -2,51 +2,58 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>WA Session Generator</title>
+  <title>WA Pairing - Multi</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:24px}
-    input,button{padding:8px;margin:4px}
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:24px;max-width:900px}
+    input,button{padding:8px;margin:6px 0}
+    pre{background:#f6f6f6;border:1px solid #ddd;padding:12px}
   </style>
 </head>
 <body>
   <h1>WhatsApp Pairing (pairing-code method)</h1>
-  <p>Enter your phone in international format (no + or spaces). Example: 254712345678</p>
-  <input id="phone" placeholder="2547..." />
-  <button onclick="generate()">Generate pairing code</button>
+  <p>Enter phone number in international format (no +). Example: 254712345678</p>
 
-  <div id="out"></div>
+  <input id="phone" placeholder="2547..." style="width:300px" />
+  <button id="gen">Generate pairing code</button>
+
+  <div id="box" style="margin-top:18px"></div>
 
   <script>
-    async function generate(){
-      const phone = document.getElementById('phone').value.trim();
-      if(!phone){ alert('enter phone'); return; }
-      const r = await fetch('/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone})});
-      const j = await r.json();
-      document.getElementById('out').innerText = 'Session created: ' + j.sessionId + ' — polling...';
-      poll(j.sessionId);
-    }
-
-    async function poll(id){
-      const el = document.getElementById('out');
-      const url = '/status/' + id;
-      let interval = setInterval(async ()=>{
+    async function poll(phone){
+      const out = document.getElementById('box');
+      out.innerHTML = 'Polling status...';
+      const url = '/status/' + phone;
+      const iv = setInterval(async ()=>{
         const r = await fetch(url);
-        if(r.status !== 200){ el.innerText = 'Not found'; clearInterval(interval); return; }
+        if(r.status !== 200){ out.innerHTML = 'Session not found'; clearInterval(iv); return; }
         const s = await r.json();
-        el.innerText = JSON.stringify(s, null, 2);
+        out.innerHTML = '<pre>' + JSON.stringify(s,null,2) + '</pre>';
         if(s.code) {
-          el.innerText += '\n\nPairing code: ' + s.code + '\n(Use WhatsApp -> Linked devices -> Link with phone number instead)';
+          out.innerHTML += '<p><strong>Pairing code:</strong> ' + s.code + '</p>';
+          out.innerHTML += '<p>Use WhatsApp -> Linked devices -> Link with phone number instead, enter code above.</p>';
         }
-        if(s.ready) {
-          clearInterval(interval);
-          el.innerText += '\n\nSession ready. Download: /download/' + id;
+        if(s.status === 'paired') {
+          clearInterval(iv);
+          out.innerHTML += `<p style="color:green">Paired! You can <a href="/download/${phone}">download creds.json</a></p>`;
         }
-        if(s.status === 'failed' || s.status === 'timeout' || s.status === 'closed') {
-          clearInterval(interval);
-          el.innerText += '\n\nPairing failed: ' + (s.error || s.status);
+        if(['timeout','error','closed'].includes(s.status)) {
+          clearInterval(iv);
+          out.innerHTML += `<p style="color:red">Pairing failed: ${s.error || s.status}</p>`;
         }
       }, 2000);
     }
+
+    document.getElementById('gen').addEventListener('click', async ()=>{
+      const phone = document.getElementById('phone').value.trim();
+      if(!phone){ alert('Enter phone'); return; }
+      const r = await fetch('/generate', { method:'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ phone })});
+      const j = await r.json();
+      if(j.ok){
+        poll(phone);
+      } else {
+        alert(JSON.stringify(j));
+      }
+    });
   </script>
 </body>
 </html>
