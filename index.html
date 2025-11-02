@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>WA Session Generator</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:24px}
+    input,button{padding:8px;margin:4px}
+  </style>
+</head>
+<body>
+  <h1>WhatsApp Pairing (pairing-code method)</h1>
+  <p>Enter your phone in international format (no + or spaces). Example: 254712345678</p>
+  <input id="phone" placeholder="2547..." />
+  <button onclick="generate()">Generate pairing code</button>
+
+  <div id="out"></div>
+
+  <script>
+    async function generate(){
+      const phone = document.getElementById('phone').value.trim();
+      if(!phone){ alert('enter phone'); return; }
+      const r = await fetch('/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone})});
+      const j = await r.json();
+      document.getElementById('out').innerText = 'Session created: ' + j.sessionId + ' — polling...';
+      poll(j.sessionId);
+    }
+
+    async function poll(id){
+      const el = document.getElementById('out');
+      const url = '/status/' + id;
+      let interval = setInterval(async ()=>{
+        const r = await fetch(url);
+        if(r.status !== 200){ el.innerText = 'Not found'; clearInterval(interval); return; }
+        const s = await r.json();
+        el.innerText = JSON.stringify(s, null, 2);
+        if(s.code) {
+          el.innerText += '\n\nPairing code: ' + s.code + '\n(Use WhatsApp -> Linked devices -> Link with phone number instead)';
+        }
+        if(s.ready) {
+          clearInterval(interval);
+          el.innerText += '\n\nSession ready. Download: /download/' + id;
+        }
+        if(s.status === 'failed' || s.status === 'timeout' || s.status === 'closed') {
+          clearInterval(interval);
+          el.innerText += '\n\nPairing failed: ' + (s.error || s.status);
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
