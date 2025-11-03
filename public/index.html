@@ -30,7 +30,7 @@
         out.innerHTML = '<pre>' + JSON.stringify(s,null,2) + '</pre>';
         if(s.code) {
           out.innerHTML += '<p><strong>Pairing code:</strong> ' + s.code + '</p>';
-          out.innerHTML += '<p>Use WhatsApp -> Linked devices -> Link with phone number instead, enter code above.</p>';
+          out.innerHTML += '<p>Use WhatsApp → Linked devices → Link with phone number, enter code above.</p>';
         }
         if(s.status === 'paired') {
           clearInterval(iv);
